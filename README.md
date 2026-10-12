@@ -2,9 +2,10 @@
 
 Unofficial Home Assistant integration for Geely vehicles managed by the new
 **Geely Global app** (Zeekr/Ecarx "EM" platform, `com.geely.global` 1.1.1+).
-Verified with a Geely EX2 (VIN model code E22H-GP) in the EU region. Read-only
-today: sensors, binary sensors and GPS tracking. Remote control is not wired up
-yet.
+Verified with a Geely EX2 (VIN model code E22H-GP) in the EU region. The
+read side (sensors, binary sensors, GPS tracking) is tested against a live car.
+The remote commands are built from the app's own command table but have **not
+been tested on a car yet**.
 
 This integration talks directly to the same backends the mobile app uses:
 
@@ -45,13 +46,30 @@ Per vehicle device with:
 - Trip history count, geofence count
 - GPS position (device tracker), last status update time
 
+Remote control (untested):
+
+- Door lock
+- Climate (on/off, target temperature 15.5-28.5 C, runs 15 minutes)
+- Seat heating driver/passenger (off, 1-3)
+- Switches: charging start/stop, defrost, steering wheel heating, parking
+  comfort, camping mode, sentry mode, scheduled charging slot 1 and 2
+- Start/end time of both scheduled charging slots
+- Buttons: honk and flash, flash lights, unlock trunk, open front trunk, vent
+  windows, close windows, rapid heating, rapid cooling, update location
+
+Not every car supports every command. The capability catalog
+(`/ms-vehicle-capability/.../function/model/info`) says what yours has; the
+EX2 lists no sentry or camping mode, for example. A command the car does not
+support fails with an error in Home Assistant.
+
 ## Notes
 
 - The login flow performs an email+password login against the app backend;
   the access token lives ~7 days and is refreshed automatically before it
   expires. Every refresh mints a fresh TSP session; the phone app enforces
   single-session on its own login only.
-- Polling defaults to 120 seconds (all read-only GETs). No commands are sent.
+- Polling defaults to 120 seconds (all read-only GETs). Commands are only sent
+  when you use a control entity, followed by one extra refresh.
 - If you use the official app at the same time it stays logged in; the EM
   platform allows parallel sessions from different clients.
 
@@ -110,6 +128,24 @@ section, the rest keep updating.
 - `POST /ms-vehicle-trail/v1.0/journalLog/trip/listForPage` (query)
 - `POST /ms-vehicle-defence/v1/fence/page` (query)
 
+### 4. Command endpoints
+
+All carry the `X-VIN` header and the body
+`{"command", "serviceId", "setting": {"serviceParameters": [{key, value}], "operationScheduling"?}}`.
+
+| Feature | Endpoint | serviceId / command / params |
+|---|---|---|
+| Lock / unlock | `ms-remote-control/v1.0/remoteControl/control` | `RDL start door=all` / `RDU stop door=all` |
+| Trunk / front trunk | same | `RDU stop target=trunk` / `RDU start target=hood` |
+| Honk, flash | same | `RHL start rhl=horn-light-flash` or `light-flash` |
+| Windows | same | `RWS start target=ventilate` / `RWS stop target=window` |
+| Modes | same | `RSM start/stop rsm=1` parking comfort, `6` sentry, `8` camping |
+| Location upload | same | `PAI start pai=1` |
+| Climate, seat/wheel heat, defrost | same | `ZAF start` with `AC`, `AC.temp`, `AC.duration`, `SH.11`/`SH.19` (+`.level`, `.duration`), `SW`, `DF` |
+| Charging | `ms-charge-manage/api/v1.0/charge/control` | `RCS start rcs.restart=1` / `RCS stop rcs.terminate=1` |
+| Rapid heat/cool | `ms-remote-control/v1.0/remoteControl/setSmartTemp` | `PAA immediately`, object `setting` |
+| Charging schedule | `ms-charge-manage/api/v2.0/charge/setBookingCharge` | `ZAZ`, full `bookingDetailSetting.settings` list |
+
 Also available but not wired up (empty or needs car-side features enabled):
 `status/carFridge`, `status/vtm`, `sentinel-monitoring-service/alarm/event/query`
 (needs sentinel mode), `/ms-vehicle-capability/.../function/model/info`
@@ -117,12 +153,12 @@ Also available but not wired up (empty or needs car-side features enabled):
 
 ## Roadmap
 
-- Remote control (lock, climate, charging) via
-  `POST /ms-remote-control/v1.0/remoteControl/control` (endpoint known,
-  payload needs one more capture round)
+- Verify the remote commands on a live car
+- Travel plan 2.0 (`setTravelPlan` v2), geofence editing, charge limit
+- Only create command entities the car's capability catalog lists
 - Configurable polling interval, reauth flow instead of background re-login
 
 ## Disclaimer
 
 Unofficial. Not affiliated with Geely. Uses your own credentials against
-Geely's own servers, read-only.
+Geely's own servers.

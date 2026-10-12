@@ -375,6 +375,110 @@ class GeelyEuClient:
             raise GeelyApiError(f"capabilities failed: {r.get('code')} {r.get('msg')}")
         return r.get("data") or []
 
+    # ---------------- vehicle commands ----------------
+    # Payloads follow the app's command table (Cmd.kt / NetCmd.kt). None of
+    # these have been checked against a live car yet.
+    def _command(
+        self,
+        path: str,
+        vin: str,
+        service_id: str,
+        command: str,
+        params: list[tuple[str, str]] | None = None,
+        duration: int | None = None,
+    ) -> dict:
+        self.ensure_session()
+        setting: dict = {
+            "serviceParameters": [{"key": k, "value": v} for k, v in params or []]
+        }
+        if duration is not None:
+            setting["operationScheduling"] = {"duration": duration}
+        body = {"command": command, "serviceId": service_id, "setting": setting}
+        _LOGGER.debug("Geely EM: %s %s %s", service_id, command, setting)
+        return self._vin_post(path, vin, body)
+
+    def remote_control(self, vin: str, service_id: str, command: str, params=None, duration=None) -> dict:
+        return self._command(
+            "/ms-remote-control/v1.0/remoteControl/control",
+            vin, service_id, command, params, duration,
+        )
+
+    def lock(self, vin: str) -> dict:
+        return self.remote_control(vin, "RDL", "start", [("door", "all")])
+
+    def unlock(self, vin: str) -> dict:
+        return self.remote_control(vin, "RDU", "stop", [("door", "all")])
+
+    def unlock_trunk(self, vin: str) -> dict:
+        return self.remote_control(vin, "RDU", "stop", [("target", "trunk")])
+
+    def open_hood(self, vin: str) -> dict:
+        return self.remote_control(vin, "RDU", "start", [("target", "hood")])
+
+    def honk_flash(self, vin: str, mode: str = "horn-light-flash") -> dict:
+        """mode: horn, light-flash or horn-light-flash."""
+        return self.remote_control(vin, "RHL", "start", [("rhl", mode)])
+
+    def windows(self, vin: str, target: str, open_: bool) -> dict:
+        """target: window, ventilate, sunroof, sunroofVentilate or sunshade."""
+        return self.remote_control(vin, "RWS", "start" if open_ else "stop", [("target", target)])
+
+    def remote_mode(self, vin: str, mode: str, on: bool) -> dict:
+        """RSM modes: 1 parking comfort, 4 parking, 6 sentry, 8 camping."""
+        return self.remote_control(vin, "RSM", "start" if on else "stop", [("rsm", mode)])
+
+    def locate(self, vin: str) -> dict:
+        """Ask the car to upload a fresh position."""
+        return self.remote_control(vin, "PAI", "start", [("pai", "1")])
+
+    def environment(self, vin: str, params: list[tuple[str, str]]) -> dict:
+        """ZAF combined climate command. Keys as in EnvRegulationRequestParams:
+        AC/AC.temp/AC.duration, DF/DF.level/DF.duration, SW/SW.level/SW.duration,
+        SH.<pos>/SH.<pos>.level/SH.<pos>.duration (11 driver, 19 passenger,
+        21 rear left, 29 rear right). Durations are minutes."""
+        return self.remote_control(vin, "ZAF", "start", params)
+
+    def charging(self, vin: str, start: bool) -> dict:
+        params = [("rcs.restart", "1")] if start else [("rcs.terminate", "1")]
+        return self._command(
+            "/ms-charge-manage/api/v1.0/charge/control",
+            vin, "RCS", "start" if start else "stop", params,
+        )
+
+    def smart_temp(self, vin: str, heat: bool, temp: float, minutes: int = 10) -> dict:
+        """PAA rapid heating / cooling, as sent by the app's quick actions."""
+        seats = [{"pos": "11", "level": "3"}, {"pos": "19", "level": "3"}]
+        setting: dict = {
+            "paa": "0",
+            "duration": str(minutes * 6),
+            "ac": "true",
+            "temp": str(temp),
+            "sw": "true" if heat else "false",
+        }
+        if heat:
+            setting["heat"] = seats
+        else:
+            setting["ventilation"] = seats
+        self.ensure_session()
+        return self._vin_post(
+            "/ms-remote-control/v1.0/remoteControl/setSmartTemp", vin,
+            {"command": "immediately", "serviceId": "PAA", "setting": setting},
+        )
+
+    def set_booking_charge(self, vin: str, priority_to_soc: bool, settings: list[dict]) -> dict:
+        """Write all scheduled charging slots ({id, sts, startTime, endTime})."""
+        self.ensure_session()
+        return self._vin_post(
+            "/ms-charge-manage/api/v2.0/charge/setBookingCharge", vin,
+            {
+                "serviceId": "ZAZ",
+                "bookingDetailSetting": {
+                    "priorityToSoc": priority_to_soc,
+                    "settings": settings,
+                },
+            },
+        )
+
     def poll_vehicle(self, vin: str) -> dict:
         """Fetch every read endpoint for one vehicle; single failures degrade
         that section to None instead of failing the whole update."""

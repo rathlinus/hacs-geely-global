@@ -7,6 +7,7 @@ from datetime import timedelta
 import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -25,7 +26,17 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["binary_sensor", "device_tracker", "sensor"]
+PLATFORMS = [
+    "binary_sensor",
+    "button",
+    "climate",
+    "device_tracker",
+    "lock",
+    "select",
+    "sensor",
+    "switch",
+    "time",
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -114,6 +125,24 @@ class GeelyEntity(CoordinatorEntity[GeelyCoordinator]):
 
     def _section(self, key: str) -> dict | list | None:
         return (self.coordinator.data or {}).get(self.vin, {}).get(key)
+
+    async def _send(self, fn, *args) -> None:
+        """Run a client command for this vehicle, re-logging in once if the
+        session expired, then poll so the new state shows up."""
+        client = self.coordinator.client
+
+        def run():
+            try:
+                return fn(self.vin, *args)
+            except GeelyAuthError:
+                client.login()
+                return fn(self.vin, *args)
+
+        try:
+            await self.hass.async_add_executor_job(run)
+        except (GeelyApiError, GeelyAuthError) as exc:
+            raise HomeAssistantError(f"Geely command failed: {exc}") from exc
+        await self.coordinator.async_request_refresh()
 
     @property
     def device_info(self):

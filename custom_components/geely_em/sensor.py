@@ -322,7 +322,7 @@ SENSORS: tuple[GeelySensorDescription, ...] = (
     GeelySensorDescription(
         key="seat_heating_passenger",
         name="Seat heating passenger",
-        path="status.additionalVehicleStatus.climateStatus.passHeatSts",
+        path="status.additionalVehicleStatus.climateStatus.passHeatingSts",
         icon="mdi:seat-heater",
     ),
     GeelySensorDescription(
