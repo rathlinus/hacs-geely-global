@@ -1,0 +1,10 @@
+{
+  "domain": "geely_em",
+  "name": "Geely (EM platform)",
+  "codeowners": ["@local"],
+  "config_flow": true,
+  "documentation": "https://github.com/local/geely-em-ha",
+  "iot_class": "cloud_polling",
+  "requirements": ["cryptography>=41.0.0"],
+  "version": "0.1.0"
+}

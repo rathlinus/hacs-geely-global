@@ -1,0 +1,29 @@
+# The repo root doubles as a reverse-engineering workspace (APKs, Frida,
+# heap dumps, traffic captures, probe scripts). Ignore everything at the
+# top level and only let the integration itself through.
+/*
+!/.gitignore
+!/README.md
+!/hacs.json
+!/LICENSE
+!/custom_components/
+!/.github/
+
+# Credentials
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

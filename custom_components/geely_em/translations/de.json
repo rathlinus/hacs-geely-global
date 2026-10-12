@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Geely (EM-Plattform)",
+        "description": "Mit der E-Mail-Adresse und dem Passwort des Geely-Global-App-Kontos anmelden. Anmeldung und Datenabruf laufen direkt von Home Assistant gegen die Geely-Server.",
+        "data": {
+          "email": "E-Mail-Adresse",
+          "password": "Passwort",
+          "country": "Ländercode (z. B. DE, NL, GB)",
+          "language": "Sprache (z. B. de, en)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Anmeldung von Geely abgelehnt - E-Mail und Passwort prüfen.",
+      "cannot_connect": "Geely-Backend nicht erreichbar.",
+      "unknown": "Unerwarteter Fehler - Logs prüfen."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits eingerichtet."
+    }
+  }
+}

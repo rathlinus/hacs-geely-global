@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Geely (EM platform)",
+        "description": "Log in with the email and password of your Geely Global app account. Login and data polling run from Home Assistant directly against Geely's servers.",
+        "data": {
+          "email": "Email address",
+          "password": "Password",
+          "country": "Country code (e.g. DE, NL, GB)",
+          "language": "Language (e.g. de, en)"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login rejected by Geely - check email and password.",
+      "cannot_connect": "Could not reach the Geely backend.",
+      "unknown": "Unexpected error - check the logs."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  }
+}
